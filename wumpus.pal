@@ -1,0 +1,1143 @@
+/ Hunt the Wumpus (v1)
+/
+/ james@jfc.org.uk
+/ http://www.jfc.org.uk/
+/ http://www.gnu.org/copyleft/gpl.html
+
+	    *0100
+
+OPLAY,	    OCTAL 0000	    / original location of player
+PLAYER,	    OCTAL 0000	    / current location of player
+OWUMP,	    OCTAL 0000	    / original location of wumpus
+WUMPUS,	    OCTAL 0000	    / current location of wumpus
+PIT1,	    OCTAL 0000	    / location of a pit
+PIT2,	    OCTAL 0000	    / location of a pit
+BATS1,	    OCTAL 0000	    / location of bats
+BATS2,	    OCTAL 0000	    / location of bats
+BUFFP,	    OCTAL BUFFER    / pointer to input buffer
+ROOMP,	    OCTAL 0000	    / pointer to current room
+ARRWR,	    OCTAL 0000	    / location of arrow
+ARRWP,	    OCTAL 0000	    / pointer arrow's room
+RANDZ,	    OCTAL 0000	    / pseudo random seed
+ARRWS,	    OCTAL 0000	    / remaining arrows
+
+	    *0600
+
+START,	    / initialise console
+	    CLA
+	    TLS
+	    KCC
+	    CLA
+	    TAD (HELLO)
+	    JMS I (PRS)
+
+	    / instructions?
+	    CLA
+	    TAD (INQ)
+	    JMS I (PRS)
+	    JMS I (INPUT)	    / instructions?
+	    JMS I (PRNL)
+	    JMS I (PRNL)
+	    CLA
+	    TAD Z I BUFFP
+	    TAD (-0331)
+	    SZA			    / Y?
+	    JMP GAME		    / no - skip instructions
+	    TAD (INSTR)
+	    JMS I (PRS)
+
+GAME, 
+	    / initialise location of player, wumpus, bats and pits
+	    JMS I (RND)
+	    DCA Z OPLAY
+	    JMS I (RND)
+	    DCA Z OWUMP
+	    JMS I (RND)
+	    DCA Z PIT1
+	    JMS I (RND)
+	    DCA Z PIT2
+	    JMS I (RND)
+	    DCA Z BATS1
+	    JMS I (RND)
+	    DCA Z BATS2
+
+NOSTUP,	    CLA
+	    TAD Z OPLAY
+	    DCA Z PLAYER
+	    TAD Z OWUMP
+	    DCA Z WUMPUS
+	    TAD (0005)
+	    DCA Z ARRWS
+
+TURN,
+	    JMS I (PRNL)
+	    / calculate room pointer
+	    CLA
+	    TAD Z PLAYER
+	    CLL RTL		    / AC = PLAYER * 4
+	    TAD (MAP)
+	    DCA Z ROOMP
+
+	    / find hazards
+	    CLA
+	    TAD Z WUMPUS
+	    JMS I (RMSRCH)	    / wumpus nearby?
+	    OCTAL (ISAW)	    / yes - i smell a wumpus
+	    CLA
+	    TAD Z PIT1
+	    JMS I (RMSRCH)	    / pit nearby?
+	    OCTAL (IFAD)	    / yes - i feel a draft
+	    CLA
+	    TAD Z PIT2
+	    JMS I (RMSRCH)	    / pit nearby?
+	    OCTAL (IFAD)	    / yes - i feel a draft
+	    CLA
+	    TAD Z BATS1
+	    JMS I (RMSRCH)	    / bats nearby?
+	    OCTAL (BN)		    / yes - bats nearby
+	    CLA
+	    TAD Z BATS2
+	    JMS I (RMSRCH)	    / bats nearby?
+	    OCTAL (BN)		    / yes - bats nearby
+
+	    / display room
+	    CLA
+	    TAD (YAIR)		    / You are in room
+	    JMS I (PRS)
+	    CLA
+	    TAD Z PLAYER
+	    JMS I (PRI)		    / #roomno
+	    CLA
+	    TAD (0256)		    / .
+	    JMS I (PRC)
+	    JMS I (PRNL)
+
+	    / display tunnels
+	    JMS I (DISTUN)
+
+	    / shoot or move?
+SOMQ,	    CLA
+	    TAD (MOS)
+	    JMS I (PRS)
+	    JMS I (INPUT)
+	    JMS I (PRNL)
+	    CLA
+	    TAD Z I BUFFP
+	    TAD (-0323)
+	    SNA			    / S?
+	    JMP I (SHOOT)	    / yes - shoot
+	    CLA
+	    TAD Z I BUFFP
+	    TAD (-0315)
+	    SNA			    / M?
+	    JMP I (MOVE)	    / yes - move
+
+	    JMP SOMQ
+
+	    *1000
+
+RMSRCH,	    / if any tunnel from the current room is AC then output inline
+	    / message
+	    NOP
+	    CIA
+	    DCA RMSRN
+	    TAD Z ROOMP
+	    DCA RMSRH
+	    TAD I RMSRH
+	    TAD RMSRN
+	    SNA			    / needle matches first tunnel?
+	    JMP RMFND		    / yes - print message
+	    ISZ RMSRH
+	    CLA
+	    TAD I RMSRH
+	    TAD RMSRN
+	    SNA			    / needle matches second tunnel?
+	    JMP RMFND		    / yes - print message
+	    ISZ RMSRH
+	    CLA
+	    TAD I RMSRH
+	    TAD RMSRN
+	    SNA			    / needle matches third tunnel?
+	    JMP RMFND		    / yes - print message
+	    ISZ RMSRCH
+	    JMP I RMSRCH
+RMFND,	    CLA
+	    TAD I RMSRCH
+	    DCA RMMSG
+	    TAD I RMMSG
+	    JMS I (PRS)
+	    ISZ RMSRCH
+	    JMP I RMSRCH
+RMSRN,	    OCTAL 0000		    / needle
+RMSRH,	    OCTAL 0000		    / haystack
+RMMSG,	    OCTAL 0000		    / message
+
+DISTUN,	    / display tunnels
+	    NOP
+	    CLA
+	    TAD (TLT)		    / Tunnels lead to
+	    JMS I (PRS)
+	    CLA
+	    TAD Z ROOMP
+	    DCA TNLI
+	    TAD I TNLI
+	    JMS I (PRI)		    / tunnel 1
+	    ISZ TNLI
+	    CLA
+	    TAD (254)		    / ,
+	    JMS I (PRC)
+	    CLA
+	    TAD (0240)		    / ' '
+	    JMS I (PRC)
+	    CLA
+	    TAD I TNLI
+	    JMS I (PRI)		    / tunnel 2
+	    ISZ TNLI
+	    CLA
+	    TAD (254)		    / ,
+	    JMS I (PRC)
+	    CLA
+	    TAD (0240)		    / ' '
+	    JMS I (PRC)
+	    CLA
+	    TAD I TNLI
+	    JMS I (PRI)		    / tunnel 3
+	    CLA
+	    TAD (0256)		    / .
+	    JMS I (PRC)
+	    JMS I (PRNL)
+	    JMS I (PRNL)
+	    JMP I DISTUN
+TNLI,	    OCTAL 0000		    / index for displaying tunnels
+
+	    *1200
+
+RNDINC,	    / increment RANDZ random seed
+	    NOP
+	    ISZ Z RANDZ		    / increment seed
+	    CLA
+	    TAD Z RANDZ
+	    SPA			    / is RANDZ positive?
+	    CLA			    / no - clear it
+	    DCA Z RANDZ
+	    IAC
+	    IAC
+	    CIA
+	    TAD RNDINC
+	    DCA RNDINC		    / decrement return address
+	    JMP I RNDINC
+
+RNDZ,	    / swap the first and the RANDZ%20 entry in random number table
+	    NOP
+	    CLA
+	    TAD Z RANDZ
+	    JMS I (DIV)
+	    OCTAL 0024
+RSWP,	    OCTAL 0
+	    CLA
+	    TAD RSWP
+	    TAD (RNDT)		    / calculate address of nth entry
+	    DCA RNDA
+	    TAD RNDT
+	    DCA	RNDS		    / save 1st entry
+	    TAD I RNDA
+	    DCA RNDT		    / move nth entry to 1st
+	    TAD RNDS
+	    DCA I RNDA		    / move saved 1st entry to nth
+	    JMP I RNDZ
+RNDS,	    OCTAL 0000		    / temp store for swap
+RNDA,	    OCTAL 0000		    / address of nth entry
+
+RND,	    / returns with a psuedo-random number between 1 and 20 in AC
+	    NOP
+	    ISZ RNDI
+	    CLA
+	    TAD I RNDI		    / load number from table
+	    SZA			    / is it zero?
+	    JMP I RND 		    / no - return
+	    CLA
+	    TAD (RNDT)
+	    DCA	RNDI		    / reset RNDI
+	    TAD I RNDI		    / load number from start of table
+	    JMP I RND 		    / return
+RNDI,	    OCTAL RNDT		    / index into RNDT
+RNDT,				    / "random" number table
+	    OCTAL 0001
+	    OCTAL 0002
+	    OCTAL 0003
+	    OCTAL 0004
+	    OCTAL 0005
+	    OCTAL 0006
+	    OCTAL 0007
+	    OCTAL 0010
+	    OCTAL 0011
+	    OCTAL 0012
+	    OCTAL 0013
+	    OCTAL 0014
+	    OCTAL 0015
+	    OCTAL 0016
+	    OCTAL 0017
+	    OCTAL 0020
+	    OCTAL 0021
+	    OCTAL 0022
+	    OCTAL 0023
+	    OCTAL 0024
+	    OCTAL 0000
+
+
+	    *1400
+
+PRC,	    / Send an ascii character in AC to tty
+	    NOP
+	    TSF			    / tty ready?
+	    JMS I (RNDINC)	    / no - try again (alter random seed)
+	    TLS			    / send char to tty
+	    TSF			    / character sent?
+	    JMS I (RNDINC)	    / no - try again
+	    JMS I (RNDZ)
+	    JMP I PRC		    / return
+
+
+PRS,	    / Send a zero terminated string (pointer in AC) to tty
+	    NOP
+	    DCA PRSI
+PRSL,	    CLA
+	    TAD I PRSI		    / load next char
+	    SNA			    / terminator?
+	    JMP I PRS		    / yes - return
+	    JMS PRC		    / print char
+	    ISZ PRSI
+	    JMP PRSL		    / print next char
+PRSI,	    OCTAL 0000
+
+PRNL,	    / Send a CR/NL sequence to tty
+	    NOP
+	    CLA
+	    TAD (CRNL)
+	    JMS PRS
+	    JMP I PRNL
+CRNL,	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+PRI,	    / send AC as decimal string to tty
+	    NOP
+	    DCA PRIN		    / PRIN = AC
+	    TAD (PRISE)
+	    DCA PRIP		    / PRIP = PRISE (reset string pointer)
+PRIL,	    CLA
+	    IAC
+	    CIA
+	    TAD PRIP
+	    DCA PRIP		    / PRIP = PRIP -1
+	    TAD PRIN
+	    JMS I (DIV)
+	    OCTAL 0012
+PRID,	    OCTAL 0000
+	    DCA PRIN		    / PRIN = PRIN / 10
+	    TAD PRIZ
+	    TAD PRID
+	    DCA I PRIP		    / store next char
+	    TAD PRIN
+	    SZA			    / finished?
+	    JMP PRIL		    / no - next interation
+	    TAD PRIP
+	    JMS PRS		    / print string
+	    JMP I PRI		    / return
+PRIP,	    OCTAL 0000		    / pointer in PRIS string
+PRIN,	    OCTAL 0000		    / number to print
+PRIS,	    OCTAL 0000		    / output string
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+PRISE,	    OCTAL 0000		    / end of string
+PRIZ,	    ASCII "0"
+
+
+	    *1600
+
+INPUT,	    / get input from tty
+	    NOP
+	    CLA
+	    TAD Z BUFFP
+	    DCA INP		    / reset INP
+INPCL,	    CLA			    / loop to clear buffer
+	    DCA I INP		    / clear charcter
+	    ISZ INP		    / next address
+	    TAD INP
+	    CIA
+	    TAD (BUFEND)
+	    SZA			    / end of buffer?
+	    JMP INPCL		    / no - next iteration
+	    CLA
+	    TAD Z BUFFP
+	    DCA INP		    / reset INP
+INPKL,	    KSF			    / keyboard ready?
+	    JMS I (RNDINC)	    / no - try again (alter random seed)
+	    KRB			    / read key
+	    DCA I INP		    / store in buffer
+	    TAD I INP
+	    JMS I (PRC)		    / echo it
+	    CLA
+	    TAD I INP
+	    TAD (-0215)
+	    SNA			    / was CR pressed?
+	    JMP INPUTD		    / yep - we're done
+	    ISZ INP		    / next address
+	    CLA
+	    TAD INP
+	    CIA
+	    TAD (BUFEND)
+	    SZA			    / end of buffer?
+	    JMP INPKL		    / no - next iteration
+INPUTD,	    JMS I (RNDZ)
+	    JMP I INPUT
+INP,	    OCTAL 0000		    / pointer to current char of input buffer
+BUFFER,	    OCTAL 0000		    / input buffer
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+BUFEND,	    OCTAL 0000		    / end of input buffer
+
+
+	    *2000
+
+
+MLTEN,	    / Multiply AC by ten
+	    NOP
+	    CLL RAL
+	    DCA MLTENI
+	    TAD MLTENI
+	    RTL
+	    TAD MLTENI
+	    JMP I MLTEN
+MLTENI,	    OCTAL 0000
+
+ATOI,	    / Convert the input buffer into an integer in AC
+	    NOP
+	    CLA
+	    DCA ATOIR		    / initialise result
+	    TAD Z BUFFP
+	    DCA ATOIP		    / initialise pointer
+ATOIL,	    CLA
+	    TAD I ATOIP
+	    TAD (-0260)
+	    CLL
+	    SPA SZL		    / *ATOIP >= '0'?
+	    JMP ATOID		    / no - invalid char
+	    CLA
+	    TAD I ATOIP
+	    TAD (-0271)
+	    SMA SZA		    / *ATOIP <= '9'?
+	    JMP ATOID		    / no - invalid char
+	    CLA
+	    TAD ATOIR
+	    JMS MLTEN
+	    TAD I ATOIP
+	    TAD (-0260)
+	    DCA ATOIR		    / ATOIR = (ATOIR * 10) + *ATOIP - '0'
+	    ISZ ATOIP		    / next char
+	    JMP ATOIL
+ATOID,	    CLA
+	    TAD ATOIR
+	    JMP I ATOI
+ATOIR,	    OCTAL 0000		    / result
+ATOIP,	    OCTAL 0000		    / pointer in buffer
+
+DIV,	    / Divide AC by 1st inline - remainder 2nd inline
+	    NOP
+	    DCA DVA		    / DVA = AC
+	    TAD I DIV
+	    DCA	DVB		    / DVB = inline value
+	    IAC
+	    DCA DVC		    / DVC = 1
+DVLP1,	    CLA
+	    TAD DVA
+	    CIA
+	    TAD DVB		    / AC = DVB - DVA
+	    SMA SZA		    / DVB <= DVA ?
+	    JMP DVSK1		    / no - skip out of L1
+	    CLA
+	    TAD DVB
+	    CLL RAL
+	    DCA DVB		    / DVB << 1
+	    TAD DVC
+	    CLL RAL
+	    DCA DVC		    / DVC << 1
+	    JMP DVLP1
+DVSK1,	    CLA
+	    DCA DVR		    / DVR = 0
+DVLP2,	    CLA
+	    TAD DVB
+	    CIA
+	    TAD DVA		    / AC = DVA - DVB
+	    SPA			    / DVB > DVA ?
+	    JMP DVSK2		    / no - skip subtraction
+	    DCA DVA		    / DVA = DVA - DVB
+	    CLA
+	    TAD DVR
+	    TAD DVC
+	    DCA DVR		    / DVR = DVR + DVC
+DVSK2,	    CLA
+	    TAD DVB
+	    CLL RAR
+	    DCA DVB		    / DVB >> 1
+	    TAD DVC
+	    CLL RAR
+	    DCA DVC		    / DVC >> 1
+	    TAD DVC
+	    SZA			    / DVC == 0 ?
+	    JMP DVLP2		    / no - loop again
+	    ISZ DIV		    / calculate remainder address
+	    CLA
+	    TAD DVA
+	    DCA I DIV		    / store remainder
+	    ISZ DIV		    / calculate return address
+	    TAD DVR		    / AC = DVR
+	    JMP I DIV		    / return
+
+DVA,	    OCTAL 0000
+DVB,	    OCTAL 0000
+DVC,	    OCTAL 0000
+DVR,	    OCTAL 0000
+
+	    *2200
+
+MOVE,	    CLA
+	    TAD (WT)
+	    JMS I (PRS)		    / where to?
+	    JMS I (INPUT)
+	    JMS I (PRNL)
+	    JMS I (ATOI)	    / get integer room number
+	    DCA MVN
+	    TAD Z ROOMP
+	    DCA MVP
+	    TAD I MVP
+	    CIA
+	    TAD MVN
+	    SNA			    / first tunnel?
+	    JMP MVOK		    / yes - legal move
+	    ISZ MVP
+	    CLA
+	    TAD I MVP
+	    CIA
+	    TAD MVN
+	    SNA			    / second tunnel?
+	    JMP MVOK		    / yes - legal move
+	    ISZ MVP
+	    CLA
+	    TAD I MVP
+	    CIA
+	    TAD MVN
+	    SNA			    / third tunnel?
+	    JMP MVOK		    / yes - legal move
+	    JMP MOVE		    / not a legal move - try again
+MVOK,	    CLA
+	    TAD MVN
+	    CIA
+	    TAD Z WUMPUS
+	    SNA			    / is same room as wumpus?
+	    JMP MVDW		    / yes - dead
+	    CLA
+	    TAD MVN
+	    CIA
+	    TAD Z PIT1
+	    SNA			    / is same room as pit1?
+	    JMP MVDP		    / yes - dead
+	    CLA
+	    TAD MVN
+	    CIA
+	    TAD Z PIT2
+	    SNA			    / is same room as pit1?
+	    JMP MVDP		    / yes - dead
+	    CLA
+	    TAD MVN
+	    CIA
+	    TAD Z BATS1
+	    SNA			    / is same room as bats1?
+	    JMP MVRAN		    / yes - random move
+	    CLA
+	    TAD MVN
+	    CIA
+	    TAD Z BATS2
+	    SNA			    / is same room as bats2?
+	    JMP MVRAN		    / yes - random move
+	    CLA
+	    TAD MVN
+	    DCA Z PLAYER
+	    JMP I (TURN)
+MVDW,	    TAD (OBAW)		    / oops - bumped a wumpus
+	    JMP MVD
+MVDP,	    TAD (YFIAP)		    / yie - fell in pit
+MVD,	    JMS I (PRS)
+	    JMP I (LOSE)
+MVRAN,	    TAD (ZSBS)
+	    JMS I (PRS)
+	    JMS I (RND)
+	    DCA MVN
+	    JMP MVOK
+MVN,	    OCTAL 0000		    / potential move
+MVP,	    OCTAL 0000		    / pointer to map
+
+
+	    *2400
+
+SHOOT,	    JMS I (NUMRMS)	    / get number of rooms
+SHRMS,	    OCTAL 0000		    / number of rooms for arrow
+	    CLA
+	    TAD (SHOTS)
+	    DCA SHI		    / reset SHI
+	    TAD Z PLAYER
+	    DCA SHLAST		    / reset SHLAST
+	    DCA SHLBO		    / reset SHLBO
+SHIL,	    CLA
+	    TAD (RN)		    / room number
+	    JMS I (PRS)
+	    JMS I (INPUT)
+	    JMS I (PRNL)
+	    JMS I (ATOI)
+	    DCA I SHI		    / store room number
+	    TAD I SHI
+	    CIA
+	    TAD SHLBO
+	    SZA			    / is this room the same as the last but one?
+	    JMP SHILSK		    / no - carry on
+	    TAD (AATC)		    / arrows aren't that crooked
+	    JMS I (PRS)
+	    JMP SHIL
+SHILSK,	    CLA
+	    TAD SHLAST
+	    DCA SHLBO		    / SHLBO = SHLAST
+	    TAD I SHI
+	    DCA SHLAST		    / SHLAST = *SHI
+	    ISZ	SHI		    / increment SHI
+	    CLA
+	    IAC
+	    CIA
+	    TAD SHRMS
+	    DCA SHRMS		    / decrement SHRMS
+	    TAD SHRMS
+	    SZA			    / more rooms?
+	    JMP SHIL		    / yes - iterate
+	    DCA I SHI		    / add terminator
+	    TAD (SHOTS)
+	    DCA SHI		    / reset SHI
+	    TAD PLAYER
+	    DCA Z ARRWR		    / set arrow room
+SHTL,
+	    / calculate arrow room pointer
+	    CLA
+	    TAD Z ARRWR
+	    CLL RTL		    / AC = ARRWR * 4
+	    TAD (MAP)
+	    DCA Z ARRWP
+	    TAD Z I ARRWP
+	    CIA
+	    TAD I SHI
+	    SNA			    / *SHI == first room?
+	    JMP RMGD		    / yes - good room.
+	    ISZ Z ARRWP
+	    CLA
+	    TAD Z I ARRWP
+	    CIA
+	    TAD I SHI
+	    SNA			    / *SHI == second room?
+	    JMP RMGD		    / yes - good room.
+	    ISZ Z ARRWP
+	    CLA
+	    TAD Z I ARRWP
+	    CIA
+	    TAD I SHI
+	    SNA			    / *SHI == third room?
+	    JMP RMGD		    / yes - good room.
+	    JMS I (RND)
+	    JMS I (DIV)
+	    OCTAL 0003
+RNDRM,	    OCTAL 0000
+	    CLA
+	    TAD RNDRM		    / random 0-2
+	    CIA
+	    TAD Z ARRWP
+	    DCA Z RNDRM		    / RNDRM is random tunnel
+	    TAD Z I ARRWP
+	    DCA I SHI		    / set random room
+RMGD,	    CLA
+	    TAD I SHI
+	    DCA Z ARRWR		    / update arrow's location
+	    TAD Z ARRWR
+	    CIA
+	    TAD Z WUMPUS
+	    SNA			    / hit the wumpus?
+	    JMP I (HITWMP)	    / yes - won
+	    CLA
+	    TAD Z ARRWR
+	    CIA
+	    TAD Z PLAYER
+	    SNA			    / hit yourself?
+	    JMP I (HITPLY)
+	    ISZ SHI
+	    CLA
+	    TAD I SHI
+	    SZA			    / end of arrow's flight?
+	    JMP SHTL		    / no - interate
+	    TAD (MISSED)
+	    JMS I (PRS)
+	    CLA
+	    IAC
+	    CIA
+	    TAD Z ARRWS
+	    DCA Z ARRWS
+	    TAD Z ARRWS
+	    SNA			    / run out of arrows?
+	    JMP I (NOARW)	    / yes - die
+	    JMP I (MVWUMP)	    / move wumpus
+SHI,	    OCTAL 0000		    / index into SHOTS
+SHLAST,	    OCTAL 0000		    / last room
+SHLBO,	    OCTAL 0000		    / last but one room
+
+	    *2600
+
+SHOTS,	    OCTAL 0000		    / table of shorts
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+
+NUMRMS,	    CLA
+	    TAD (NOR)		    / number of rooms
+	    JMS I (PRS)
+	    JMS I (INPUT)
+	    JMS I (PRNL)
+	    JMS I (ATOI)
+	    DCA I NUMRMS	    / store number of rooms
+	    TAD I NUMRMS
+	    SNA			    / NUMRMS == 0?
+	    JMP SHOOT		    / yes - try again.
+	    TAD (-0005)
+	    SMA SZA		    / NUMRMS > 5?
+	    JMP SHOOT		    / yes - try again.
+	    ISZ NUMRMS		    / calculate return addr
+	    JMP I NUMRMS
+
+HITWMP,	    / hit the wumpus - you've won
+	    CLA
+	    TAD (AYGTW)
+	    JMS I (PRS)
+	    JMP I (WIN)
+
+HITPLY,	    / hit yourself - die
+	    CLA
+	    TAD (OAGY)
+	    JMS I (PRS)
+	    JMP I (LOSE)
+
+NOARW,	    / ran out of arrows - die
+	    CLA
+	    TAD (YROOA)
+	    JMS I (PRS)
+	    JMP I (LOSE)
+
+MVWUMP,	    / move the wumpus
+	    JMS I (RND)
+	    JMS I (DIV)
+	    OCTAL 0004
+MVWR,	    OCTAL 0000		    / remainder of DIV - random 0-3
+	    CLA
+	    TAD MVWR
+	    SNA			    / remainder 0 (prob: 0.25)?
+	    JMP I (TURN)	    / yes - wumpus does not move
+	    JMS I (RND)
+	    JMS I (DIV)
+	    OCTAL 0003
+MVWT,	    OCTAL 0000		    / remainder of DIV - random tunnel
+	    /calculate new room
+	    CLA
+	    TAD Z WUMPUS
+	    CLL RTL		    / AC = WUMPUS * 4
+	    TAD (MAP)		    / add base of map table
+	    TAD MVWT		    / add offset to random tunnel
+	    DCA MVWT		    / save pointer to new room
+	    TAD I MVWT
+	    DCA Z WUMPUS	    / save new wumpus room
+	    TAD Z WUMPUS
+	    CIA
+	    TAD Z PLAYER
+	    SZA			    / wumpus in same room as player?
+	    JMP I (TURN)	    / no - next turn
+	    TAD (TTTWGY)
+	    JMS I (PRS)
+	    JMP I (LOSE)	    / wumpus got you - game over
+
+LOSE,	    / you've lost
+	    CLA
+	    TAD (HHHYL)
+	    JMS I (PRS)
+WIN,	    / you've won
+	    CLA
+	    TAD (SSU)
+	    JMS I (PRS)
+	    JMS I (INPUT)	    / same setup
+	    JMS I (PRNL)
+	    JMS I (PRNL)
+	    CLA
+	    TAD Z I BUFFP
+	    TAD (-0321)
+	    SNA			    / Q?
+	    HLT			    / yes - hidden halt option
+	    CLA
+	    TAD Z I BUFFP
+	    TAD (-0331)
+	    SZA			    / Y?
+	    JMP I (GAME)	    / no - new setup
+	    JMP I (NOSTUP)
+
+
+
+	    *3000
+
+MAP,	    / 20 x 3 array,
+	    /     plus dummy room 0 and extra padding for 4 word records
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+	    OCTAL 0000
+
+	    OCTAL 0002
+	    OCTAL 0005
+	    OCTAL 0010
+	    OCTAL 0000
+
+	    OCTAL 0001
+	    OCTAL 0003
+	    OCTAL 0012
+	    OCTAL 0000
+
+	    OCTAL 0002
+	    OCTAL 0004
+	    OCTAL 0014
+	    OCTAL 0000
+
+	    OCTAL 0003
+	    OCTAL 0005
+	    OCTAL 0016
+	    OCTAL 0000
+
+	    OCTAL 0001
+	    OCTAL 0004
+	    OCTAL 0006
+	    OCTAL 0000
+
+	    OCTAL 0005
+	    OCTAL 0007
+	    OCTAL 0017
+	    OCTAL 0000
+
+	    OCTAL 0006
+	    OCTAL 0010
+	    OCTAL 0021
+	    OCTAL 0000
+
+	    OCTAL 0001
+	    OCTAL 0007
+	    OCTAL 0011
+	    OCTAL 0000
+
+	    OCTAL 0010
+	    OCTAL 0012
+	    OCTAL 0022
+	    OCTAL 0000
+
+	    OCTAL 0002
+	    OCTAL 0011
+	    OCTAL 0013
+	    OCTAL 0000
+
+	    OCTAL 0012
+	    OCTAL 0014
+	    OCTAL 0023
+	    OCTAL 0000
+
+	    OCTAL 0003
+	    OCTAL 0013
+	    OCTAL 0015
+	    OCTAL 0000
+
+	    OCTAL 0014
+	    OCTAL 0016
+	    OCTAL 0024
+	    OCTAL 0000
+
+	    OCTAL 0004
+	    OCTAL 0015
+	    OCTAL 0017
+	    OCTAL 0000
+
+	    OCTAL 0006
+	    OCTAL 0016
+	    OCTAL 0020
+	    OCTAL 0000
+
+	    OCTAL 0017
+	    OCTAL 0021
+	    OCTAL 0024
+	    OCTAL 0000
+
+	    OCTAL 0007
+	    OCTAL 0020
+	    OCTAL 0022
+	    OCTAL 0000
+
+	    OCTAL 0011
+	    OCTAL 0021
+	    OCTAL 0023
+	    OCTAL 0000
+
+	    OCTAL 0013
+	    OCTAL 0022
+	    OCTAL 0024
+	    OCTAL 0000
+
+	    OCTAL 0015
+	    OCTAL 0020
+	    OCTAL 0023
+	    OCTAL 0000
+
+	    OCTAL 1111
+	    OCTAL 1111
+	    OCTAL 1111
+	    OCTAL 1111
+
+ISAW,	    ASCII "I SMELL A WUMPUS!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0210
+	    OCTAL 0000
+
+IFAD,	    ASCII "I FEEL A DRAFT!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0210
+	    OCTAL 0000
+
+BN,	    ASCII "BATS NEARBY!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0210
+	    OCTAL 0000
+
+HELLO,	    OCTAL 0215
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    ASCII "HUNT THE WUMPUS"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "BASED ON GREGORY YOB's ORIGINAL BASIC VERSION."
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "BY JAMES CARTER (JAMES@JFC.ORG.UK)"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    OCTAL 0000
+
+YAIR,	    ASCII "YOU ARE IN ROOM "
+	    OCTAL 0000
+
+TLT,	    ASCII "TUNNELS LEAD TO "
+	    OCTAL 0000
+
+MOS,	    ASCII "SHOOT OR MOVE (S-M)? "
+	    OCTAL 0000
+
+WT,	    ASCII "WHERE TO? "
+	    OCTAL 0000
+
+OBAW,	    ASCII "... OOPS! BUMPED A WUMPUS!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+YFIAP,	    ASCII "YYYIIIIEEEE . . . FELL IN PIT"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+ZSBS,	    ASCII "ZAP--SUPER BAT SNATCH! ELSEWHEREVILLE FOR YOU!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+NOR,	    ASCII "NO. OF ROOMS(1-5)? "
+	    OCTAL 0000
+
+RN,	    ASCII "ROOM #? "
+	    OCTAL 0000
+
+AATC,	    ASCII "ARROWS AREN'T THAT CROOKED - TRY ANOTHER ROOM."
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+MISSED,	    ASCII "MISSED"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+AYGTW,	    ASCII "AHA! YOU GOT THE WUMPUS!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "HEE HEE HEE- THE WUMPUS'LL GETCHA NEXT TIME!!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    OCTAL 0000
+
+YROOA,	    ASCII "YOU RAN OUT OF ARROWS!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+OAGY,	    ASCII "OUCH! ARROW GOT YOU!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+HHHYL,	    ASCII "HA HA HA - YOU LOSE!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    OCTAL 0000
+
+TTTWGY,	    ASCII "TSK TSK TSK - WUMPUS GOT YOU!"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0000
+
+SSU,	    OCTAL 0212
+	    ASCII "SAME SET-UP (Y-N)? "
+	    OCTAL 0000
+
+INQ,	    ASCII "INSTRUCTIONS (Y-N)? "
+	    OCTAL 0000
+
+INSTR,
+	    ASCII "WELCOME TO 'HUNT THE WUMPUS'"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII " THE WUMPUS LIVES IN CAVES OF 20 ROOMS. EACH ROOM"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "HAS 3 TUNNELS LEADING TO OTHER ROOMS. (LOOK AT A"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "DODECAHEDRON TO SEE HOW THIS WORKS-IF YOU DON'T KNOW"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "WHAT A DODECAHEDRON IS, ASK SOMEONE)"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    ASCII "    HAZARDS:"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "BOTTOMLESS PITS - TWO ROOMS HAVE BOTTOMLESS PITS IN THEM"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     IF YOU GO THERE, YOU FALL INTO THE PIT (& LOSE!)"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "SUPERBATS - TWO OTHER ROOMS HAVE SUPER BATS. IF YOU"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     GO THERE, A BAT GRABS YOU AND TAKES YOU TO SOME OTHER"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     ROOM AT RANDOM. (WHICH MIGHT BE TROUBLESOME)"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    ASCII "     WUMPUS:"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "THE WUMPUS IS NOT BOTHERED BY THE HAZARDS (HE HAS SUCKER"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "FEET AND IS TOO BIG FOR A BAT TO LIFT). USUALLY"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "HE IS ASLEEP. TWO THINGS WAKE HIM UP: YOUR ENTERING"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "HIS ROOM OR YOUR SHOOTING AN ARROW."
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     IF THE WUMPUS WAKES, HE MOVES (P=.75) ONE ROOM"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "OR STAYS STILL (P=.25). AFTER THAT, IF HE IS WHERE YOU"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "ARE, HE EATS YOU UP (& YOU LOSE!)"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    ASCII "     YOU:"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "EACH TURN YOU MAY MOVE OR SHOOT A CROOKED ARROW"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     MOVING: YOU CAN MOVE ONE ROOM (THRU ONE TUNNEL)"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     ARROWS: YOU HAVE 5 ARROWS. YOU LOSE WHEN YOU RUN OUT."
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     EACH ARROW CAN GO FROM 1 TO 5 ROOMS. YOU AIM BY TELLING"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     THE COMPUTER THE ROOMS YOU WANT THE ARROW TO GO TO."
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     IF THE ARROW CAN'T GO THAT WAY (IE NO TUNNEL) IT MOVES"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     AT RANDOM TO THE NEXT ROOM."
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     IF THE ARROW HITS THE WUMPUS, YOU WIN."
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     IF THE ARROW HITS YOU, YOU LOSE."
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    ASCII "     WARNINGS:"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "      WHEN YOU ARE ONE ROOM AWAY FROM WUMPUS OR HAZARD,"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "     THE COMPUTER SAYS:"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "WUMPUS-   'I SMELL A WUMPUS'"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "BAT   -   'BATS NEARBY'"
+	    OCTAL 0215
+	    OCTAL 0212
+	    ASCII "PIT   -   'I FEEL A DRAFT'"
+	    OCTAL 0215
+	    OCTAL 0212
+	    OCTAL 0212
+	    OCTAL 0000
+
+	    $
